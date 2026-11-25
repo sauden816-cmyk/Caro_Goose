@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caro Online 2 Người, Kết Bạn & Đấu Trí Real-Time</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #0f172a; color: #f8fafc; margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center; }
+
+        .toast-container {
+            position: fixed; top: 14px; right: 14px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 8px; max-width: 320px; pointer-events: none;
+        }
+        .toast {
+            background: #1e293b; color: #f8fafc; padding: 10px 14px; border-radius: 8px;
+            border-left: 4px solid #38bdf8; box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+            font-size: 13px; pointer-events: auto;
+        }
+        .toast.success { border-left-color: #10b981; }
+        .toast.error { border-left-color: #ef4444; }
+        .toast.warn { border-left-color: #f59e0b; }
+
+        .server-notice {
+            width: 100%; max-width: 1180px; background: #1e3a8a; border: 1px solid #38bdf8;
+            color: #e0f2fe; padding: 8px 14px; border-radius: 8px; margin-bottom: 10px;
+            font-size: 13px; display: none; justify-content: space-between; align-items: center;
+        }
+
+        /* Màn hình Login */
+        .login-screen {
+            width: 100%; max-width: 440px; background: #1e293b; border: 1px solid #334155;
+            border-radius: 14px; padding: 24px; margin-top: 28px; box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+        }
+        .login-screen h2 { margin: 0 0 6px 0; color: #38bdf8; font-size: 20px; text-align: center; }
+        .login-sub { font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 18px; }
+        .form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 12px; color: #cbd5e1; font-weight: 600; }
+        .form-input, .form-select {
+            width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid #475569;
+            background: #0f172a; color: #fff; font-size: 13px;
+        }
+        .avatar-picker-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .avatar-circle {
+            width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+            border: 2px solid #38bdf8; background: #0f172a; cursor: pointer; flex-shrink: 0;
+        }
+        .avatar-circle.sm { width: 32px; height: 32px; border-width: 1.5px; }
+
+        .auth-blocker {
+            width: 100%; max-width: 600px; background: #1e293b; border: 1px solid #ef4444;
+            padding: 20px; border-radius: 12px; text-align: center; margin-top: 30px; display: none;
+        }
+
+        .header {
+            width: 100%; max-width: 1180px; display: none; flex-wrap: wrap; gap: 10px;
+            justify-content: space-between; align-items: center;
+            background: #1e293b; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px;
+        }
+        .profile-box { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .uid-tag { background: #334155; padding: 5px 10px; border-radius: 16px; font-size: 12px; color: #38bdf8; font-weight: bold; }
+        .auth-badge { background: #064e3b; color: #34d399; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+        .name-input {
+            padding: 6px 10px; border-radius: 6px; border: 1px solid #475569;
+            background: #0f172a; color: #fff; font-size: 13px; width: 140px;
+        }
+        .country-select {
+            padding: 6px 8px; border-radius: 6px; border: 1px solid #475569;
+            background: #0f172a; color: #fff; font-size: 12px; max-width: 175px;
+        }
+
+        .main-layout { display: none; flex-wrap: wrap; gap: 16px; max-width: 1180px; width: 100%; justify-content: center; align-items: flex-start; }
+
+        .btn {
+            padding: 7px 11px; border: none; border-radius: 6px; font-weight: 600;
+            cursor: pointer; color: #fff; font-size: 12px; transition: 0.15s;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-create { background: #0284c7; }
+        .btn-create:hover:not(:disabled) { background: #0369a1; }
+        .btn-join { background: #10b981; }
+        .btn-join:hover:not(:disabled) { background: #059669; }
+        .btn-leave { background: #ef4444; }
+        .btn-leave:hover:not(:disabled) { background: #dc2626; }
+        .btn-reset { background: #475569; }
+        .btn-reset:hover:not(:disabled) { background: #64748b; }
+        .btn-warn { background: #f59e0b; color: #0f172a; }
+
+        .caro-section { background: #1e293b; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+        .room-bar { width: 100%; background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #334155; }
+        .room-controls { display: flex; gap: 6px; flex-wrap: wrap; }
+        .room-input {
+            flex: 1; min-width: 95px; padding: 7px 9px; border-radius: 6px; border: 1px solid #475569;
+            background: #1e293b; color: #fff; font-weight: bold; text-transform: uppercase; font-size: 12px;
+        }
+        .room-info { margin-top: 8px; font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .room-code-badge {
+            background: #f59e0b; color: #000; padding: 2px 7px; border-radius: 4px;
+            font-weight: bold; letter-spacing: 1px; cursor: pointer;
+        }
+        .rematch-banner {
+            margin-top: 8px; padding: 8px; background: #1e3a8a; border: 1px solid #38bdf8;
+            border-radius: 6px; font-size: 12px; display: none; justify-content: space-between; align-items: center; gap: 8px;
+        }
+
+        .board-wrapper { width: 100%; overflow-x: auto; display: flex; justify-content: center; }
+        .board {
+            display: grid; grid-template-columns: repeat(15, minmax(20px, 24px)); grid-template-rows: repeat(15, minmax(20px, 24px));
+            gap: 1px; background: #475569; border: 2px solid #64748b;
+        }
+        .cell {
+            width: 100%; height: 100%; min-width: 20px; min-height: 20px; background: #0f172a;
+            display: flex; align-items: center; justify-content: center; font-weight: bold;
+            font-size: 13px; cursor: pointer; user-select: none;
+        }
+        .cell:hover { background: #1e293b; }
+        .cell.X { color: #38bdf8; }
+        .cell.O { color: #f43f5e; }
+        .cell.last-move { background: #1e3a8a; box-shadow: inset 0 0 0 1px #38bdf8; }
+
+        .caro-footer { margin-top: 10px; display: flex; gap: 8px; align-items: center; width: 100%; justify-content: space-between; }
+
+        .social-section { flex: 1; min-width: 260px; max-width: 320px; background: #1e293b; padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
+        .section-title { font-size: 15px; font-weight: bold; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 6px; margin: 0; }
+        .search-row { display: flex; gap: 6px; }
+        .search-input {
+            flex: 1; padding: 7px 9px; border-radius: 6px; border: 1px solid #475569;
+            background: #0f172a; color: #fff; font-size: 12px;
+        }
+        .list-box { background: #0f172a; border-radius: 8px; padding: 8px; max-height: 150px; overflow-y: auto; border: 1px solid #334155; font-size: 12px; }
+        .user-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px; border-bottom: 1px solid #1e293b; gap: 6px; }
+        .user-item:last-child { border-bottom: none; }
+        .user-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+        .user-meta { display: flex; flex-direction: column; overflow: hidden; }
+        .user-name { font-weight: bold; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-sub { font-size: 11px; color: #94a3b8; }
+
+        .quiz-section { flex: 1; min-width: 290px; background: #1e293b; padding: 16px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; }
+        .quiz-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-bottom: 12px; }
+        .q-number { font-size: 15px; font-weight: bold; color: #38bdf8; }
+        .timer-box { background: #ef4444; color: #fff; padding: 3px 10px; border-radius: 20px; font-weight: bold; font-size: 14px; min-width: 58px; text-align: center; }
+        .timer-box.safe { background: #10b981; }
+        .q-content { font-size: 16px; font-weight: 600; margin-bottom: 14px; line-height: 1.4; min-height: 46px; }
+        .admin-badge { display: inline-block; background: #f59e0b; color: #000; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-bottom: 6px; }
+
+        .options-list { display: flex; flex-direction: column; gap: 8px; }
+        .opt-btn {
+            background: #0f172a; border: 2px solid #334155; color: #f8fafc; padding: 10px 12px;
+            border-radius: 8px; text-align: left; font-size: 14px; cursor: pointer; transition: 0.15s;
+        }
+        .opt-btn:hover { border-color: #38bdf8; }
+        .opt-btn.selected { background: #0284c7; border-color: #38bdf8; font-weight: bold; }
+        .opt-btn.correct { background: #10b981; border-color: #059669; }
+        .opt-btn.wrong { background: #ef4444; border-color: #dc2626; }
+
+        .btn-finish {
+            margin-top: 14px; width: 100%; padding: 11px; background: #10b981; color: #fff;
+            border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; display: none;
+        }
+        .btn-finish:hover { background: #059669; }
+
+        .scoreboard { margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155; font-size: 12px; color: #cbd5e1; display: flex; flex-direction: column; gap: 5px; }
+        .score-row { display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Input chọn ảnh từ điện thoại / PC -->
+<input type="file" id="avatarFileInput" accept="image/*" style="display:none;" onchange="handleAvatarFileSelected(event)">
+
+<div class="server-notice" id="serverNoticeBar">
+    <span id="serverNoticeText"></span>
+    <button class="btn btn-reset" onclick="document.getElementById('serverNoticeBar').style.display='none'">Đóng</button>
+</div>
+
+<!-- Màn hình Login -->
+<div class="login-screen" id="loginScreen">
+    <h2>ĐĂNG NHẬP CARO ONLINE</h2>
+    <div class="login-sub">Bấm vào ảnh để chọn ảnh từ điện thoại hoặc PC, chọn quốc gia và vào chơi.</div>
+
+    <div class="avatar-picker-row">
+        <img id="loginAvatarPreview" class="avatar-circle" src="" alt="Avatar" title="Bấm để chọn ảnh từ thiết bị" onclick="triggerAvatarFilePicker()">
+        <div>
+            <button type="button" class="btn btn-create" onclick="triggerAvatarFilePicker()">Chọn ảnh từ tệp</button>
+            <div class="user-sub" style="margin-top:4px;">Hỗ trợ JPG, PNG, WEBP (tự tối ưu kích thước)</div>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="loginNameInput">Tên hiển thị</label>
+        <input type="text" id="loginNameInput" class="form-input" maxlength="20" placeholder="Ví dụ: Henry">
+    </div>
+
+    <div class="form-group">
+        <label for="loginCountrySelect">Quốc gia (60 quốc gia)</label>
+        <select id="loginCountrySelect" class="form-select"></select>
+    </div>
+
+    <div class="form-group">
+        <label for="loginUidInput">UID tùy chọn (để trống nếu dùng UID tự động)</label>
+        <input type="text" id="loginUidInput" class="form-input" maxlength="64" placeholder="Tự động cấp nếu bỏ trống">
+    </div>
+
+    <button type="button" class="btn btn-join" id="loginSubmitBtn" style="width:100%; padding:10px; font-size:14px;" onclick="submitLoginForm()">Vào sảnh chơi</button>
+</div>
+
+<div class="auth-blocker" id="authBlocker">
+    <h3 style="color:#ef4444; margin-top:0;" id="blockerTitle">Lỗi Xác Thực Kết Nối</h3>
+    <p style="font-size:14px; color:#cbd5e1;" id="blockerMessage">Không thể xác thực tài khoản với Firebase.</p>
+    <button class="btn btn-create" onclick="backToLoginScreen()">Quay lại đăng nhập</button>
+</div>
+
+<div class="header" id="appHeader">
+    <div style="font-weight: bold; font-size: 17px;">CARO ONLINE & ĐẤU TRÍ</div>
+    <div class="profile-box">
+        <img id="headerAvatarImg" class="avatar-circle sm" src="" alt="Avatar" title="Bấm để đổi ảnh từ thiết bị" onclick="triggerAvatarFilePicker()">
+        <span class="auth-badge" id="authStatusBadge">Đã xác thực</span>
+        <span class="uid-tag" id="playerUid" title="Bấm để sao chép UID" style="cursor:pointer;" onclick="copyTextValue(uid, 'UID')">UID: ...</span>
+        <input type="text" id="displayNameInput" class="name-input" maxlength="20" placeholder="Tên hiển thị...">
+        <select id="headerCountrySelect" class="country-select" onchange="onCountryChanged(this.value)"></select>
+        <button class="btn btn-create" id="saveNameBtn" onclick="saveProfileName()">Lưu tên</button>
+        <button class="btn btn-reset" onclick="backToLoginScreen()">Đổi TK</button>
+    </div>
+</div>
+
+<div class="main-layout" id="appMainLayout">
+    <div class="caro-section">
+        <div class="room-bar">
+            <div class="room-controls" id="lobbyControls">
+                <button class="btn btn-create" id="createRoomBtn" onclick="createOnlineRoom()">+ Tạo phòng</button>
+                <input type="text" id="roomCodeInput" class="room-input" maxlength="6" placeholder="Mã phòng..." onkeydown="if(event.key==='Enter') joinOnlineRoom()">
+                <button class="btn btn-join" id="joinRoomBtn" onclick="joinOnlineRoom()">Vào phòng</button>
+            </div>
+
+            <div class="room-controls" id="activeRoomControls" style="display:none; justify-content: space-between; align-items: center;">
+                <div>
+                    Mã: <span class="room-code-badge" id="currentRoomBadge" title="Bấm để sao chép" onclick="copyTextValue(currentRoomId, 'mã phòng')">-----</span>
+                    <span id="myRoleBadge" style="margin-left:6px; font-weight:bold; color:#38bdf8;">Bạn: X</span>
+                </div>
+                <button class="btn btn-leave" id="leaveRoomBtn" onclick="leaveOnlineRoom()">Rời phòng</button>
+            </div>
+
+            <div class="room-info">
+                <img id="opponentAvatarImg" class="avatar-circle sm" style="display:none;" src="" alt="Đối thủ" title="Bấm để đổi ảnh của bạn" onclick="triggerAvatarFilePicker()">
+                <span id="roomStatusText">Chế độ: Chơi thử trên máy</span>
+            </div>
+
+            <div class="rematch-banner" id="rematchBanner">
+                <span id="rematchText">Đối thủ muốn bắt đầu ván mới!</span>
+                <div style="display:flex; gap:4px;">
+                    <button class="btn btn-join" id="acceptRematchBtn" onclick="acceptRematch()">Đồng ý</button>
+                    <button class="btn btn-leave" id="declineRematchBtn" onclick="declineRematch()">Từ chối</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="board-wrapper">
+            <div class="board" id="caroBoard"></div>
+        </div>
+
+        <div class="caro-footer">
+            <span id="turnIndicator" style="font-weight:bold; color:#38bdf8; font-size:13px;">Lượt: X</span>
+            <button class="btn btn-reset" id="resetBtn" onclick="handleResetClick()">Ván mới</button>
+        </div>
+    </div>
+
+    <div class="social-section">
+        <h3 class="section-title">Tìm Kiếm & Kết Bạn</h3>
+
+        <div class="search-row">
+            <input type="text" id="searchUserInput" class="search-input" placeholder="Tìm theo UID hoặc tên..." onkeydown="if(event.key==='Enter') searchUsers()">
+            <button class="btn btn-create" id="searchBtn" onclick="searchUsers()">Tìm</button>
+        </div>
+        <div class="list-box" id="searchResultsBox">
+            <div class="user-sub">Nhập UID hoặc tên rồi bấm Tìm.</div>
+        </div>
+
+        <h3 class="section-title">Lời Mời Kết Bạn & Mời Phòng</h3>
+        <div class="list-box" id="friendRequestsBox">
+            <div class="user-sub">Không có lời mời mới.</div>
+        </div>
+
+        <h3 class="section-title">Danh Sách Bạn Bè</h3>
+        <div class="list-box" id="friendsListBox">
+            <div class="user-sub">Chưa có bạn bè nào.</div>
+        </div>
+    </div>
+
+    <div class="quiz-section">
+        <div>
+            <div class="quiz-header">
+                <span class="q-number" id="qNumberDisplay">Câu 1</span>
+                <div class="timer-box safe" id="timerDisplay">15s</div>
+            </div>
+
+            <div id="adminTagArea"></div>
+            <div class="q-content" id="qContent">Đang tải câu hỏi...</div>
+            <div class="options-list" id="optionsContainer"></div>
+        </div>
+
+        <div>
+            <button class="btn-finish" id="finishBtn" onclick="submitAndNext()">HOÀN TẤT</button>
+
+            <div class="scoreboard">
+                <div class="score-row">
+                    <span>Điểm của bạn: <strong id="scoreDisplay" style="color:#38bdf8; font-size:14px;">0</strong></span>
+                    <span id="syncStatus" style="color:#10b981;">Live Sync</span>
+                </div>
+                <div class="score-row" id="opponentScoreRow" style="display:none; color:#f43f5e;">
+                    <span>Đối thủ: <strong id="opponentScoreDisplay">0 điểm (Câu 1)</strong></span>
+                    <span id="opponentOnlineBadge">Online</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 60 quốc gia & cờ chuẩn
+    const COUNTRIES_60 = [
+        { code: "VN", flag: "🇻🇳", name: "Việt Nam" },
+        { code: "US", flag: "🇺🇸", name: "Hoa Kỳ" },
+        { code: "JP", flag: "🇯🇵", name: "Nhật Bản" },
+        { code: "KR", flag: "🇰🇷", name: "Hàn Quốc" },
+        { code: "SG", flag: "🇸🇬", name: "Singapore" },
+        { code: "TH", flag: "🇹🇭", name: "Thái Lan" },
+        { code: "GB", flag: "🇬🇧", name: "Vương quốc Anh" },
+        { code: "FR", flag: "🇫🇷", name: "Pháp" },
+        { code: "DE", flag: "🇩🇪", name: "Đức" },
+        { code: "CN", flag: "🇨🇳", name: "Trung Quốc" },
+        { code: "TW", flag: "🇹🇼", name: "Đài Loan" },
+        { code: "HK", flag: "🇭🇰", name: "Hồng Kông" },
+        { code: "IN", flag: "🇮🇳", name: "Ấn Độ" },
+        { code: "ID", flag: "🇮🇩", name: "Indonesia" },
+        { code: "MY", flag: "🇲🇾", name: "Malaysia" },
+        { code: "PH", flag: "🇵🇭", name: "Philippines" },
+        { code: "AU", flag: "🇦🇺", name: "Úc" },
+        { code: "NZ", flag: "🇳🇿", name: "New Zealand" },
+        { code: "CA", flag: "🇨🇦", name: "Canada" },
+        { code: "BR", flag: "🇧🇷", name: "Brazil" },
+        { code: "AR", flag: "🇦🇷", name: "Argentina" },
+        { code: "MX", flag: "🇲🇽", name: "Mexico" },
+        { code: "RU", flag: "🇷🇺", name: "Nga" },
+        { code: "UA", flag: "🇺🇦", name: "Ukraina" },
+        { code: "IT", flag: "🇮🇹", name: "Ý" },
+        { code: "ES", flag: "🇪🇸", name: "Tây Ban Nha" },
+        { code: "PT", flag: "🇵🇹", name: "Bồ Đào Nha" },
+        { code: "NL", flag: "🇳🇱", name: "Hà Lan" },
+        { code: "BE", flag: "🇧🇪", name: "Bỉ" },
+        { code: "CH", flag: "🇨🇭", name: "Thụy Sĩ" },
+        { code: "AT", flag: "🇦🇹", name: "Áo" },
+        { code: "SE", flag: "🇸🇪", name: "Thụy Điển" },
+        { code: "NO", flag: "🇳🇴", name: "Na Uy" },
+        { code: "DK", flag: "🇩🇰", name: "Đan Mạch" },
+        { code: "FI", flag: "🇫🇮", name: "Phần Lan" },
+        { code: "PL", flag: "🇵🇱", name: "Ba Lan" },
+        { code: "CZ", flag: "🇨🇿", name: "Séc" },
+        { code: "GR", flag: "🇬🇷", name: "Hy Lạp" },
+        { code: "TR", flag: "🇹🇷", name: "Thổ Nhĩ Kỳ" },
+        { code: "EG", flag: "🇪🇬", name: "Ai Cập" },
+        { code: "ZA", flag: "🇿🇦", name: "Nam Phi" },
+        { code: "NG", flag: "🇳🇬", name: "Nigeria" },
+        { code: "KE", flag: "🇰🇪", name: "Kenya" },
+        { code: "SA", flag: "🇸🇦", name: "Ả Rập Xê Út" },
+        { code: "AE", flag: "🇦🇪", name: "UAE" },
+        { code: "QA", flag: "🇶🇦", name: "Qatar" },
+        { code: "IL", flag: "🇮🇱", name: "Israel" },
+        { code: "PK", flag: "🇵🇰", name: "Pakistan" },
+        { code: "BD", flag: "🇧🇩", name: "Bangladesh" },
+        { code: "LK", flag: "🇱🇰", name: "Sri Lanka" },
+        { code: "MM", flag: "🇲🇲", name: "Myanmar" },
+        { code: "KH", flag: "🇰🇭", name: "Campuchia" },
+        { code: "LA", flag: "🇱🇦", name: "Lào" },
+        { code: "MN", flag: "🇲🇳", name: "Mông Cổ" },
+        { code: "KZ", flag: "🇰🇿", name: "Kazakhstan" },
+        { code: "CL", flag: "🇨🇱", name: "Chile" },
+        { code: "CO", flag: "🇨🇴", name: "Colombia" },
+        { code: "PE", flag: "🇵🇪", name: "Peru" },
+        { code: "HU", flag: "🇭🇺", name: "Hungary" },
+        { code: "IE", flag: "🇮🇪", name: "Ireland" }
+    ];
+
+    function getCountryObj(code) {
+        return COUNTRIES_60.find(c => c.code === code) || COUNTRIES_60[0];
+    }
+
+    function populateCountrySelects(selectedCode = "VN") {
+        const ids = ["loginCountrySelect", "headerCountrySelect"];
+        ids.forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            sel.innerHTML = "";
+            COUNTRIES_60.forEach(c => {
+                const opt = document.createElement("option");
+                opt.value = c.code;
+                opt.textContent = `${c.flag} ${c.name}`;
+                if (c.code === selectedCode) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        });
+    }
+
+    function makeDefaultAvatarSvg(label = "C") {
+        const safeChar = String(label || "C").trim().slice(0, 1).toUpperCase() || "C";
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="48" fill="#1e3a8a"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#38bdf8" font-size="42" font-family="Arial,sans-serif" font-weight="bold">${safeChar}</text></svg>`;
+        return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+    }
+
+    function setAvatarPreviews(dataUrl) {
+        const finalUrl = dataUrl || makeDefaultAvatarSvg(myName);
+        document.getElementById("loginAvatarPreview").src = finalUrl;
+        document.getElementById("headerAvatarImg").src = finalUrl;
+    }
+
+    function triggerAvatarFilePicker() {
+        document.getElementById("avatarFileInput").click();
+    }
+
+    async function handleAvatarFileSelected(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = "";
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            showToast("Vui lòng chọn tệp hình ảnh!", "warn");
+            return;
+        }
+        if (file.size > 6 * 1024 * 1024) {
+            showToast("Ảnh quá lớn (tối đa 6MB)!", "warn");
+            return;
+        }
+
+        try {
+            const compressedBase64 = await compressImageToBase64(file, 160, 0.75);
+            myAvatar = compressedBase64;
+            setAvatarPreviews(myAvatar);
+            localStorage.setItem("caro_saved_avatar", myAvatar);
+
+            if (myUserRef && uid) {
+                await myUserRef.update({ avatar: myAvatar });
+            }
+            if (currentRoomId && roomRef && mySymbol) {
+                await roomRef.child(`players/${mySymbol}/avatar`).set(myAvatar);
+            }
+            showToast("Đã cập nhật ảnh đại diện!", "success");
+        } catch (err) {
+            showToast("Không thể đọc ảnh: " + err.message, "error");
+        }
+    }
+
+    function compressImageToBase64(file, maxSize = 160, quality = 0.75) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error("Lỗi đọc file"));
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = () => reject(new Error("Ảnh không hợp lệ"));
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > h && w > maxSize) {
+                        h = Math.round((h * maxSize) / w);
+                        w = maxSize;
+                    } else if (h >= w && h > maxSize) {
+                        w = Math.round((w * maxSize) / h);
+                        h = maxSize;
+                    }
+                    const canvas = document.createElement("canvas");
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL("image/jpeg", quality));
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = message;
+        container.appendChild(el);
+        setTimeout(() => {
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 250);
+        }, 3200);
+    }
+
+    async function copyTextValue(text, label = 'mã') {
+        if (!text) return;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                showToast(`Đã sao chép ${label}: ${text}`, 'success');
+                return;
+            }
+        } catch (e) {}
+        showToast(`${label.toUpperCase()}: ${text}`, 'info');
+    }
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyArpMYGnL46wvNyMbcyHH2VeaMiL1pQgK4",
+        authDomain: "carro-henry.firebaseapp.com",
+        databaseURL: "https://carro-henry-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "carro-henry",
+        storageBucket: "carro-henry.firebasestorage.app",
+        messagingSenderId: "438339133677",
+        appId: "1:438339133677:web:f271239aae11f527582ce4",
+        measurementId: "G-1SBG7RBC0S"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let uid = '';
+    let myName = '';
+    let myCountry = 'VN';
+    let myAvatar = '';
+    let myUserRef = null;
+    let isInitialized = false;
+
+    function backToLoginScreen() {
+        document.getElementById('appHeader').style.display = 'none';
+        document.getElementById('appMainLayout').style.display = 'none';
+        document.getElementById('authBlocker').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'block';
+        document.getElementById('loginNameInput').value = myName || localStorage.getItem('caro_saved_name') || '';
+        document.getElementById('loginUidInput').value = localStorage.getItem('caro_custom_uid') || '';
+        setAvatarPreviews(myAvatar || localStorage.getItem('caro_saved_avatar') || '');
+    }
+
+    async function submitLoginForm() {
+        const enteredName = document.getElementById('loginNameInput').value.trim();
+        const enteredCountry = document.getElementById('loginCountrySelect').value || 'VN';
+        const enteredUid = document.getElementById('loginUidInput').value.trim();
+
+        if (enteredName) {
+            if (enteredName.length < 2 || enteredName.length > 20 || !/^[\p{L}\p{N}\s._-]+$/u.test(enteredName)) {
+                showToast("Tên hiển thị từ 2-20 ký tự, không chứa ký tự đặc biệt lạ!", "warn");
+                return;
+            }
+            myName = enteredName;
+            localStorage.setItem('caro_saved_name', myName);
+        }
+
+        myCountry = enteredCountry;
+        localStorage.setItem('caro_saved_country', myCountry);
+        populateCountrySelects(myCountry);
+
+        if (enteredUid) {
+            if (!/^[a-zA-Z0-9_-]{4,64}$/.test(enteredUid)) {
+                showToast("UID tùy chọn chỉ gồm chữ, số, _ hoặc - (4-64 ký tự)!", "warn");
+                return;
+            }
+            localStorage.setItem('caro_custom_uid', enteredUid);
+        } else {
+            localStorage.removeItem('caro_custom_uid');
+        }
+
+        document.getElementById('loginScreen').style.display = 'none';
+        await initAuthAndProfile(enteredUid);
+    }
+
+    async function initAuthAndProfile(preferredCustomUid = '') {
+        const blocker = document.getElementById('authBlocker');
+        const mainLayout = document.getElementById('appMainLayout');
+        const header = document.getElementById('appHeader');
+
+        blocker.style.display = 'none';
+        document.getElementById('authStatusBadge').textContent = 'Đang xác thực...';
+
+        try {
+            if (!firebase.auth) throw new Error("Thiếu Firebase Authentication.");
+            const cred = await firebase.auth().signInAnonymously();
+            if (!cred || !cred.user || !cred.user.uid) {
+                throw new Error("Không nhận được UID xác thực.");
+            }
+
+            const customUid = (preferredCustomUid || localStorage.getItem('caro_custom_uid') || '').trim();
+            uid = customUid || cred.user.uid;
+
+            const cObj = getCountryObj(myCountry);
+            document.getElementById('authStatusBadge').textContent = `${cObj.flag} Đã xác thực`;
+            document.getElementById('authStatusBadge').style.background = '#064e3b';
+            document.getElementById('authStatusBadge').style.color = '#34d399';
+            header.style.display = 'flex';
+            mainLayout.style.display = 'flex';
+
+            document.getElementById('playerUid').textContent = 'UID: ' + uid;
+            myUserRef = db.ref('users/' + uid);
+
+            const userSnap = await myUserRef.once('value');
+            const userData = userSnap.val() || {};
+
+            if (userData.banned === true) {
+                lockAppForBannedUser();
+                return;
+            }
+
+            myName = myName || userData.name || ('Người chơi ' + uid.slice(-4));
+            myCountry = userData.country || myCountry || 'VN';
+            myAvatar = myAvatar || userData.avatar || localStorage.getItem('caro_saved_avatar') || makeDefaultAvatarSvg(myName);
+
+            populateCountrySelects(myCountry);
+            setAvatarPreviews(myAvatar);
+            document.getElementById('displayNameInput').value = myName;
+
+            if (typeof userData.score === 'number') score = userData.score;
+            if (typeof userData.qNum === 'number' && userData.qNum >= 1) questionNumber = userData.qNum;
+            document.getElementById('scoreDisplay').textContent = score;
+
+            await myUserRef.update({
+                uid: uid,
+                name: myName,
+                nameLower: myName.toLowerCase(),
+                country: myCountry,
+                avatar: myAvatar,
+                online: true,
+                lastSeen: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            myUserRef.child('online').onDisconnect().set(false);
+            myUserRef.child('lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+
+            myUserRef.child('banned').on('value', snap => {
+                if (snap.val() === true) lockAppForBannedUser();
+            });
+
+            db.ref('server_broadcast').on('value', snap => {
+                const msg = snap.val();
+                const bar = document.getElementById('serverNoticeBar');
+                if (msg && msg.text) {
+                    document.getElementById('serverNoticeText').textContent = `THÔNG BÁO SERVER: ${msg.text}`;
+                    bar.style.display = 'flex';
+                } else {
+                    bar.style.display = 'none';
+                }
+            });
+
+            if (!isInitialized) {
+                isInitialized = true;
+                startSocialListeners();
+                await startQuizSystem(userData.consumedQuestions || {});
+            } else {
+                startSocialListeners();
+            }
+        } catch (err) {
+            mainLayout.style.display = 'none';
+            header.style.display = 'none';
+            document.getElementById('blockerTitle').textContent = 'Xác Thực Thất Bại';
+            document.getElementById('blockerMessage').textContent =
+                'Không thể đăng nhập Firebase Auth (' + err.message + '). Kiểm tra cấu hình hoặc mạng và thử lại.';
+            blocker.style.display = 'block';
+        }
+    }
+
+    function lockAppForBannedUser() {
+        document.getElementById('appMainLayout').style.display = 'none';
+        document.getElementById('appHeader').style.display = 'none';
+        document.getElementById('blockerTitle').textContent = 'Tài Khoản Đã Bị Khóa';
+        document.getElementById('blockerMessage').textContent = 'Tài khoản của bạn đã bị khóa bởi quản trị viên.';
+        document.getElementById('authBlocker').style.display = 'block';
+    }
+
+    async function onCountryChanged(newCode) {
+        myCountry = newCode || 'VN';
+        localStorage.setItem('caro_saved_country', myCountry);
+        document.getElementById('loginCountrySelect').value = myCountry;
+        const cObj = getCountryObj(myCountry);
+        document.getElementById('authStatusBadge').textContent = `${cObj.flag} Đã xác thực`;
+
+        if (myUserRef && uid) {
+            await myUserRef.update({ country: myCountry }).catch(() => {});
+        }
+        if (currentRoomId && roomRef && mySymbol) {
+            await roomRef.child(`players/${mySymbol}/country`).set(myCountry).catch(() => {});
+        }
+        showToast(`Đã chọn quốc gia: ${cObj.flag} ${cObj.name}`, "success");
+    }
+
+    async function saveProfileName() {
+        const val = document.getElementById('displayNameInput').value.trim();
+        if (val.length < 2 || val.length > 20) {
+            showToast("Tên hiển thị phải từ 2 đến 20 ký tự!", "warn");
+            return;
+        }
+        if (!/^[\p{L}\p{N}\s._-]+$/u.test(val)) {
+            showToast("Tên chỉ được chứa chữ cái, số, khoảng trắng và dấu ._ -", "warn");
+            return;
+        }
+        if (!myUserRef) return;
+
+        const btn = document.getElementById('saveNameBtn');
+        btn.disabled = true;
+        try {
+            myName = val;
+            localStorage.setItem('caro_saved_name', myName);
+            await myUserRef.update({
+                name: myName,
+                nameLower: myName.toLowerCase(),
+                country: myCountry,
+                avatar: myAvatar
+            });
+            if (currentRoomId && roomRef && mySymbol) {
+                await roomRef.child(`players/${mySymbol}`).update({
+                    name: myName,
+                    country: myCountry,
+                    avatar: myAvatar
+                });
+            }
+            showToast("Đã lưu thông tin: " + myName, "success");
+        } catch (err) {
+            showToast("Lỗi lưu tên: " + err.message, "error");
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    let myFriends = {};
+    let latestRoomInvites = {};
+    let latestFriendReqs = {};
+    let lastSocialActionTime = 0;
+
+    function canTriggerSocialAction() {
+        const now = Date.now();
+        if (now - lastSocialActionTime < 3000) {
+            showToast("Thao tác quá nhanh, vui lòng đợi vài giây!", "warn");
+            return false;
+        }
+        lastSocialActionTime = now;
+        return true;
+    }
+
+    async function searchUsers() {
+        const raw = document.getElementById('searchUserInput').value.trim();
+        const keyword = raw.toLowerCase();
+        const box = document.getElementById('searchResultsBox');
+        if (!keyword) {
+            box.innerHTML = '<div class="user-sub">Vui lòng nhập UID hoặc tên cần tìm.</div>';
+            return;
+        }
+
+        const btn = document.getElementById('searchBtn');
+        btn.disabled = true;
+        box.innerHTML = '<div class="user-sub">Đang tìm kiếm...</div>';
+
+        try {
+            const resultsMap = new Map();
+
+            if (!/[.#$\[\]/]/.test(raw)) {
+                const exactUidSnap = await db.ref('users/' + raw).once('value');
+                if (exactUidSnap.exists()) {
+                    const u = exactUidSnap.val();
+                    if (u && u.uid && u.uid !== uid) resultsMap.set(u.uid, u);
+                }
+            }
+
+            const nameSnap = await db.ref('users')
+                .orderByChild('nameLower')
+                .startAt(keyword)
+                .endAt(keyword + '\uf8ff')
+                .limitToFirst(15)
+                .once('value');
+
+            nameSnap.forEach(child => {
+                const u = child.val();
+                if (u && u.uid && u.uid !== uid) {
+                    resultsMap.set(u.uid, u);
+                }
+            });
+
+            const matches = Array.from(resultsMap.values());
+            if (matches.length === 0) {
+                box.innerHTML = '<div class="user-sub">Không tìm thấy người chơi phù hợp.</div>';
+                return;
+            }
+
+            box.innerHTML = '';
+            matches.forEach(u => {
+                const isFriend = Boolean(myFriends[u.uid]);
+                const cObj = getCountryObj(u.country);
+                const row = document.createElement('div');
+                row.className = 'user-item';
+
+                const left = document.createElement('div');
+                left.className = 'user-left';
+
+                const av = document.createElement('img');
+                av.className = 'avatar-circle sm';
+                av.src = u.avatar || makeDefaultAvatarSvg(u.name);
+                left.appendChild(av);
+
+                const meta = document.createElement('div');
+                meta.className = 'user-meta';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'user-name';
+                nameSpan.textContent = `${cObj.flag} ${u.name || u.uid} (${u.online ? 'Online' : 'Offline'})`;
+
+                const subSpan = document.createElement('span');
+                subSpan.className = 'user-sub';
+                subSpan.textContent = `${cObj.name} • UID: ${u.uid}`;
+
+                meta.appendChild(nameSpan);
+                meta.appendChild(subSpan);
+                left.appendChild(meta);
+                row.appendChild(left);
+
+                if (isFriend) {
+                    const friendLabel = document.createElement('span');
+                    friendLabel.style.color = '#10b981';
+                    friendLabel.style.fontWeight = 'bold';
+                    friendLabel.textContent = 'Bạn bè';
+                    row.appendChild(friendLabel);
+                } else {
+                    const addBtn = document.createElement('button');
+                    addBtn.className = 'btn btn-join';
+                    addBtn.textContent = 'Kết bạn';
+                    addBtn.onclick = () => sendFriendRequest(u.uid);
+                    row.appendChild(addBtn);
+                }
+
+                box.appendChild(row);
+            });
+        } catch (err) {
+            box.innerHTML = '<div class="user-sub" style="color:#ef4444;">Lỗi tìm kiếm người chơi.</div>';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function sendFriendRequest(targetUid) {
+        if (!targetUid || targetUid === uid) return;
+        if (myFriends[targetUid]) {
+            showToast("Người này đã có trong danh sách bạn bè.", "info");
+            return;
+        }
+        if (!canTriggerSocialAction()) return;
+
+        try {
+            await db.ref(`friend_requests/${targetUid}/${uid}`).set({
+                fromUid: uid,
+                fromName: myName,
+                fromCountry: myCountry,
+                fromAvatar: myAvatar,
+                sentAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            showToast("Đã gửi lời mời kết bạn!", "success");
+        } catch (err) {
+            showToast("Không thể gửi lời mời: " + err.message, "error");
+        }
+    }
+
+    async function acceptFriendRequest(fromUid, fromName, fromCountry, fromAvatar) {
+        if (!fromUid || fromUid === uid) return;
+        try {
+            const updates = {};
+            updates[`friends/${uid}/${fromUid}`] = {
+                uid: fromUid,
+                name: fromName || fromUid,
+                country: fromCountry || 'VN',
+                avatar: fromAvatar || makeDefaultAvatarSvg(fromName),
+                addedAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            updates[`friends/${fromUid}/${uid}`] = {
+                uid: uid,
+                name: myName,
+                country: myCountry,
+                avatar: myAvatar,
+                addedAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            updates[`friend_requests/${uid}/${fromUid}`] = null;
+            await db.ref().update(updates);
+            showToast("Đã kết bạn thành công!", "success");
+        } catch (err) {
+            showToast("Lỗi chấp nhận kết bạn: " + err.message, "error");
+        }
+    }
+
+    async function declineFriendRequest(fromUid) {
+        try {
+            await db.ref(`friend_requests/${uid}/${fromUid}`).remove();
+            showToast("Đã từ chối lời mời.", "info");
+        } catch (err) {
+            showToast("Lỗi từ chối: " + err.message, "error");
+        }
+    }
+
+    async function inviteFriendToRoom(friendUid) {
+        if (!currentRoomId || !mySymbol) {
+            showToast("Hãy tạo hoặc vào một phòng Caro trước khi mời!", "warn");
+            return;
+        }
+        if (!myFriends[friendUid]) {
+            showToast("Chỉ có thể mời người trong danh sách bạn bè!", "warn");
+            return;
+        }
+        if (!canTriggerSocialAction()) return;
+
+        try {
+            await db.ref(`room_invites/${friendUid}/${uid}`).set({
+                fromUid: uid,
+                fromName: myName,
+                roomCode: currentRoomId,
+                sentAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            showToast(`Đã gửi lời mời vào phòng ${currentRoomId}!`, "success");
+        } catch (err) {
+            showToast("Lỗi gửi lời mời phòng: " + err.message, "error");
+        }
+    }
+
+    async function joinInvitedRoom(code, senderUid) {
+        document.getElementById('roomCodeInput').value = code;
+        const joined = await joinOnlineRoom();
+        if (joined) {
+            db.ref(`room_invites/${uid}/${senderUid}`).remove().catch(() => {});
+        }
+    }
+
+    async function declineRoomInvite(senderUid) {
+        try {
+            await db.ref(`room_invites/${uid}/${senderUid}`).remove();
+        } catch (e) {}
+    }
+
+    function startSocialListeners() {
+        const inviteTtl = 10 * 60 * 1000;
+
+        db.ref('friend_requests/' + uid).off('value');
+        db.ref('friend_requests/' + uid).on('value', snap => {
+            latestFriendReqs = snap.val() || {};
+            renderRequestsBox();
+        });
+
+        db.ref('room_invites/' + uid).off('value');
+        db.ref('room_invites/' + uid).on('value', snap => {
+            const raw = snap.val() || {};
+            const valid = {};
+            const now = Date.now();
+            Object.entries(raw).forEach(([k, v]) => {
+                if (v && v.sentAt && (now - v.sentAt > inviteTtl)) {
+                    db.ref(`room_invites/${uid}/${k}`).remove().catch(() => {});
+                } else if (v) {
+                    valid[k] = v;
+                }
+            });
+            latestRoomInvites = valid;
+            renderRequestsBox();
+        });
+
+        db.ref('friends/' + uid).off('value');
+        db.ref('friends/' + uid).on('value', snap => {
+            myFriends = snap.val() || {};
+            renderFriendsList();
+        });
+    }
+
+    function renderRequestsBox() {
+        const box = document.getElementById('friendRequestsBox');
+        const fEntries = Object.entries(latestFriendReqs);
+        const rEntries = Object.entries(latestRoomInvites);
+
+        if (fEntries.length === 0 && rEntries.length === 0) {
+            box.innerHTML = '<div class="user-sub">Không có lời mời mới.</div>';
+            return;
+        }
+
+        box.innerHTML = '';
+        fEntries.forEach(([fromUid, info]) => {
+            const cObj = getCountryObj(info.fromCountry);
+            const row = document.createElement('div');
+            row.className = 'user-item';
+
+            const left = document.createElement('div');
+            left.className = 'user-left';
+
+            const av = document.createElement('img');
+            av.className = 'avatar-circle sm';
+            av.src = info.fromAvatar || makeDefaultAvatarSvg(info.fromName);
+            left.appendChild(av);
+
+            const meta = document.createElement('div');
+            meta.className = 'user-meta';
+            const n = document.createElement('span');
+            n.className = 'user-name';
+            n.textContent = `${cObj.flag} ${info.fromName || fromUid}`;
+            const s = document.createElement('span');
+            s.className = 'user-sub';
+            s.textContent = `Kết bạn (${fromUid})`;
+            meta.appendChild(n);
+            meta.appendChild(s);
+            left.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.gap = '4px';
+
+            const okBtn = document.createElement('button');
+            okBtn.className = 'btn btn-join';
+            okBtn.textContent = 'Đồng ý';
+            okBtn.onclick = () => acceptFriendRequest(fromUid, info.fromName || fromUid, info.fromCountry, info.fromAvatar);
+
+            const noBtn = document.createElement('button');
+            noBtn.className = 'btn btn-leave';
+            noBtn.textContent = 'Từ chối';
+            noBtn.onclick = () => declineFriendRequest(fromUid);
+
+            actions.appendChild(okBtn);
+            actions.appendChild(noBtn);
+            row.appendChild(left);
+            row.appendChild(actions);
+            box.appendChild(row);
+        });
+
+        rEntries.forEach(([fromUid, info]) => {
+            const row = document.createElement('div');
+            row.className = 'user-item';
+
+            const meta = document.createElement('div');
+            meta.className = 'user-meta';
+            const n = document.createElement('span');
+            n.className = 'user-name';
+            n.textContent = info.fromName || fromUid;
+            const s = document.createElement('span');
+            s.className = 'user-sub';
+            s.textContent = `Mời phòng: ${info.roomCode}`;
+            meta.appendChild(n);
+            meta.appendChild(s);
+
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.gap = '4px';
+
+            const joinBtn = document.createElement('button');
+            joinBtn.className = 'btn btn-warn';
+            joinBtn.textContent = 'Vào';
+            joinBtn.onclick = () => joinInvitedRoom(info.roomCode, fromUid);
+
+            const noBtn = document.createElement('button');
+            noBtn.className = 'btn btn-leave';
+            noBtn.textContent = 'Xóa';
+            noBtn.onclick = () => declineRoomInvite(fromUid);
+
+            actions.appendChild(joinBtn);
+            actions.appendChild(noBtn);
+            row.appendChild(meta);
+            row.appendChild(actions);
+            box.appendChild(row);
+        });
+    }
+
+    function renderFriendsList() {
+        const box = document.getElementById('friendsListBox');
+        const entries = Object.values(myFriends);
+        if (entries.length === 0) {
+            box.innerHTML = '<div class="user-sub">Chưa có bạn bè nào.</div>';
+            return;
+        }
+
+        box.innerHTML = '';
+        entries.forEach(fr => {
+            const cObj = getCountryObj(fr.country);
+            const row = document.createElement('div');
+            row.className = 'user-item';
+
+            const left = document.createElement('div');
+            left.className = 'user-left';
+
+            const av = document.createElement('img');
+            av.className = 'avatar-circle sm';
+            av.src = fr.avatar || makeDefaultAvatarSvg(fr.name);
+            left.appendChild(av);
+
+            const meta = document.createElement('div');
+            meta.className = 'user-meta';
+            const n = document.createElement('span');
+            n.className = 'user-name';
+            n.textContent = `${cObj.flag} ${fr.name || fr.uid}`;
+            const s = document.createElement('span');
+            s.className = 'user-sub';
+            s.textContent = `UID: ${fr.uid}`;
+            meta.appendChild(n);
+            meta.appendChild(s);
+            left.appendChild(meta);
+
+            const invBtn = document.createElement('button');
+            invBtn.className = 'btn btn-create';
+            invBtn.textContent = 'Mời chơi';
+            invBtn.onclick = () => inviteFriendToRoom(fr.uid);
+
+            row.appendChild(left);
+            row.appendChild(invBtn);
+            box.appendChild(row);
+        });
+    }
+
+    const BOARD_SIZE = 15;
+    let boardState = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(''));
+    let cellElements = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+    let currentTurn = 'X';
+    let gameOver = false;
+    let lastMove = null;
+    let lastProcessedMoveSeq = -1;
+    let currentRoomSnapshot = null;
+
+    let currentRoomId = null;
+    let mySymbol = null;
+    let roomRef = null;
+    let roomListener = null;
+    let myPlayerDisconnectRef = null;
+    let isRoomBusy = false;
+
+    function initBoardDOM() {
+        const boardEl = document.getElementById('caroBoard');
+        boardEl.innerHTML = '';
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.onclick = () => onCellClick(r, c);
+                boardEl.appendChild(cell);
+                cellElements[r][c] = cell;
+            }
+        }
+    }
+
+    function syncBoardDOM() {
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                const cell = cellElements[r][c];
+                const val = boardState[r][c];
+                if (cell.textContent !== val) {
+                    cell.textContent = val;
+                    cell.classList.remove('X', 'O');
+                    if (val === 'X' || val === 'O') cell.classList.add(val);
+                }
+                const isLast = Boolean(lastMove && lastMove.r === r && lastMove.c === c);
+                cell.classList.toggle('last-move', isLast);
+            }
+        }
+    }
+
+    function generateRoomCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 5; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    }
+
+    async function createOnlineRoom() {
+        if (isRoomBusy) return;
+        if (currentRoomId) {
+            showToast("Bạn đang ở trong phòng " + currentRoomId + ". Hãy rời phòng trước!", "warn");
+            return;
+        }
+
+        isRoomBusy = true;
+        document.getElementById('createRoomBtn').disabled = true;
+        try {
+            for (let attempt = 0; attempt < 8; attempt++) {
+                const candidateCode = generateRoomCode();
+                const candidateRef = db.ref('caro_rooms/' + candidateCode);
+
+                const initialData = {
+                    status: 'waiting',
+                    turn: 'X',
+                    starter: 'X',
+                    winner: '',
+                    moveSeq: 0,
+                    lastMove: null,
+                    moves: {},
+                    rematchRequest: null,
+                    players: {
+                        X: { uid: uid, name: myName, country: myCountry, avatar: myAvatar, online: true, score: score, qNum: questionNumber }
+                    },
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                };
+
+                const txResult = await candidateRef.transaction((currentData) => {
+                    if (currentData !== null) return;
+                    return initialData;
+                });
+
+                if (txResult.committed) {
+                    await setupRoomConnection(candidateCode, 'X');
+                    showToast("Đã tạo phòng: " + candidateCode, "success");
+                    return;
+                }
+            }
+            showToast("Không thể tạo mã phòng duy nhất, vui lòng thử lại!", "error");
+        } catch (err) {
+            showToast("Lỗi tạo phòng: " + err.message, "error");
+        } finally {
+            isRoomBusy = false;
+            document.getElementById('createRoomBtn').disabled = false;
+        }
+    }
+
+    async function joinOnlineRoom() {
+        if (isRoomBusy) return false;
+        const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+        if (!/^[A-Z0-9]{4,6}$/.test(code)) {
+            showToast("Mã phòng không hợp lệ (4-6 ký tự chữ/số)!", "warn");
+            return false;
+        }
+        if (currentRoomId === code) {
+            showToast("Bạn đã ở trong phòng này rồi!", "info");
+            return true;
+        }
+
+        isRoomBusy = true;
+        document.getElementById('joinRoomBtn').disabled = true;
+        try {
+            const targetRef = db.ref('caro_rooms/' + code);
+            const snap = await targetRef.once('value');
+            if (!snap.exists()) {
+                showToast("Mã phòng không tồn tại!", "error");
+                return false;
+            }
+
+            const existing = snap.val();
+            if (!existing || !existing.players || !existing.players.X || !existing.players.X.uid) {
+                showToast("Dữ liệu phòng không hợp lệ!", "error");
+                return false;
+            }
+            if (existing.status === 'finished') {
+                showToast("Phòng này đã kết thúc trận đấu!", "warn");
+                return false;
+            }
+
+            if (existing.players.X.uid === uid) {
+                await setupRoomConnection(code, 'X');
+                showToast("Đã kết nối lại phòng " + code + " (Quân X)", "success");
+                return true;
+            }
+
+            if (existing.players.O && existing.players.O.uid === uid) {
+                await setupRoomConnection(code, 'O');
+                showToast("Đã kết nối lại phòng " + code + " (Quân O)", "success");
+                return true;
+            }
+
+            let conflictReason = '';
+            const txResult = await targetRef.transaction((roomData) => {
+                if (!roomData || !roomData.players || !roomData.players.X) {
+                    conflictReason = 'Phòng không hợp lệ!';
+                    return;
+                }
+                if (roomData.status === 'finished') {
+                    conflictReason = 'Phòng này đã kết thúc trận đấu!';
+                    return;
+                }
+                if (roomData.players.O && roomData.players.O.uid && roomData.players.O.uid !== uid) {
+                    conflictReason = 'Phòng đã đủ 2 người chơi!';
+                    return;
+                }
+                roomData.players.O = {
+                    uid: uid,
+                    name: myName,
+                    country: myCountry,
+                    avatar: myAvatar,
+                    online: true,
+                    score: score,
+                    qNum: questionNumber
+                };
+                roomData.status = 'playing';
+                return roomData;
+            });
+
+            if (!txResult.committed || conflictReason) {
+                showToast(conflictReason || "Không thể tham gia phòng lúc này!", "error");
+                return false;
+            }
+
+            await setupRoomConnection(code, 'O');
+            showToast("Đã vào phòng " + code + " (Quân O)", "success");
+            return true;
+        } catch (err) {
+            showToast("Lỗi tham gia phòng: " + err.message, "error");
+            return false;
+        } finally {
+            isRoomBusy = false;
+            document.getElementById('joinRoomBtn').disabled = false;
+        }
+    }
+
+    async function detachCurrentRoom() {
+        if (myPlayerDisconnectRef) {
+            try {
+                await myPlayerDisconnectRef.cancel();
+            } catch (e) {}
+            myPlayerDisconnectRef = null;
+        }
+        if (roomRef && mySymbol) {
+            try {
+                await roomRef.child(`players/${mySymbol}/online`).set(false);
+            } catch (e) {}
+        }
+        if (roomRef && roomListener) {
+            roomRef.off('value', roomListener);
+        }
+    }
+
+    async function setupRoomConnection(code, symbol) {
+        await detachCurrentRoom();
+
+        currentRoomId = code;
+        mySymbol = symbol;
+        lastProcessedMoveSeq = -1;
+        roomRef = db.ref('caro_rooms/' + code);
+
+        const myPlayerRef = roomRef.child('players/' + symbol);
+        await myPlayerRef.update({
+            uid: uid,
+            name: myName,
+            country: myCountry,
+            avatar: myAvatar,
+            online: true,
+            score: score,
+            qNum: questionNumber
+        });
+
+        myPlayerDisconnectRef = myPlayerRef.child('online').onDisconnect();
+        await myPlayerDisconnectRef.set(false);
+
+        document.getElementById('lobbyControls').style.display = 'none';
+        document.getElementById('activeRoomControls').style.display = 'flex';
+        document.getElementById('currentRoomBadge').textContent = code;
+        document.getElementById('myRoleBadge').textContent = `Bạn: ${symbol}`;
+        document.getElementById('myRoleBadge').style.color = symbol === 'X' ? '#38bdf8' : '#f43f5e';
+        document.getElementById('opponentScoreRow').style.display = 'flex';
+
+        roomListener = roomRef.on('value', (snap) => {
+            const room = snap.val();
+            if (!room) {
+                showToast("Phòng đã bị đóng.", "warn");
+                exitToLocalMode();
+                return;
+            }
+
+            const mySlot = room.players ? room.players[mySymbol] : null;
+            if (!mySlot || mySlot.uid !== uid) {
+                showToast("Bạn đã mất quyền truy cập phòng này!", "error");
+                exitToLocalMode();
+                return;
+            }
+
+            currentRoomSnapshot = room;
+
+            const incomingSeq = room.moveSeq || 0;
+            if (incomingSeq !== lastProcessedMoveSeq) {
+                boardState = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(''));
+                if (room.moves) {
+                    Object.entries(room.moves).forEach(([key, val]) => {
+                        const [r, c] = key.split('_').map(Number);
+                        if (Number.isInteger(r) && Number.isInteger(c) &&
+                            r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE &&
+                            (val === 'X' || val === 'O')) {
+                            boardState[r][c] = val;
+                        }
+                    });
+                }
+                const lm = room.lastMove;
+                if (lm && Number.isInteger(lm.r) && Number.isInteger(lm.c) &&
+                    lm.r >= 0 && lm.r < BOARD_SIZE && lm.c >= 0 && lm.c < BOARD_SIZE) {
+                    lastMove = lm;
+                } else {
+                    lastMove = null;
+                }
+                lastProcessedMoveSeq = incomingSeq;
+                syncBoardDOM();
+            }
+
+            currentTurn = (room.turn === 'X' || room.turn === 'O') ? room.turn : 'X';
+
+            const oppSymbol = mySymbol === 'X' ? 'O' : 'X';
+            const rematchBanner = document.getElementById('rematchBanner');
+            if (room.rematchRequest === oppSymbol && room.status === 'playing') {
+                rematchBanner.style.display = 'flex';
+            } else {
+                rematchBanner.style.display = 'none';
+            }
+
+            const oppData = room.players ? room.players[oppSymbol] : null;
+            const statusEl = document.getElementById('roomStatusText');
+            const turnEl = document.getElementById('turnIndicator');
+            const oppAvEl = document.getElementById('opponentAvatarImg');
+
+            if (!oppData || !oppData.uid) {
+                oppAvEl.style.display = 'none';
+                statusEl.textContent = `Chờ đối thủ nhập mã ${code}...`;
+                statusEl.style.color = '#f59e0b';
+            } else {
+                const oppCountry = getCountryObj(oppData.country);
+                oppAvEl.src = oppData.avatar || makeDefaultAvatarSvg(oppData.name);
+                oppAvEl.style.display = 'inline-block';
+
+                if (oppData.online === false) {
+                    statusEl.textContent = `${oppCountry.flag} ${oppData.name || oppSymbol} đã rời hoặc mất kết nối`;
+                    statusEl.style.color = '#ef4444';
+                    document.getElementById('opponentOnlineBadge').textContent = 'Offline';
+                    document.getElementById('opponentOnlineBadge').style.color = '#94a3b8';
+                } else {
+                    statusEl.textContent = `${oppCountry.flag} Đấu với ${oppData.name || oppData.uid}`;
+                    statusEl.style.color = '#10b981';
+                    document.getElementById('opponentOnlineBadge').textContent = 'Online';
+                    document.getElementById('opponentOnlineBadge').style.color = '#10b981';
+                    document.getElementById('opponentScoreDisplay').textContent =
+                        `${oppData.score || 0} điểm (Câu ${oppData.qNum || 1})`;
+                }
+            }
+
+            if (room.status === 'finished') {
+                gameOver = true;
+                if (room.winner === 'DRAW') {
+                    turnEl.textContent = "Hòa";
+                    turnEl.style.color = "#f59e0b";
+                } else if (room.winner === mySymbol) {
+                    turnEl.textContent = `Bạn (${mySymbol}) thắng`;
+                    turnEl.style.color = "#10b981";
+                } else {
+                    turnEl.textContent = `Bạn thua (${room.winner} thắng)`;
+                    turnEl.style.color = "#ef4444";
+                }
+            } else {
+                gameOver = false;
+                if (!oppData || oppData.online === false) {
+                    turnEl.textContent = "Chờ đối thủ...";
+                    turnEl.style.color = "#94a3b8";
+                } else if (currentTurn === mySymbol) {
+                    turnEl.textContent = `Lượt bạn (${mySymbol})`;
+                    turnEl.style.color = "#10b981";
+                } else {
+                    turnEl.textContent = `Lượt ${currentTurn}...`;
+                    turnEl.style.color = "#f59e0b";
+                }
+            }
+        });
+    }
+
+    function onCellClick(r, c) {
+        if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return;
+        if (gameOver || boardState[r][c] !== '') return;
+
+        if (currentRoomId && roomRef && (mySymbol === 'X' || mySymbol === 'O')) {
+            roomRef.transaction((roomData) => {
+                if (!roomData || roomData.status !== 'playing') return;
+                if (!roomData.players || !roomData.players[mySymbol] || roomData.players[mySymbol].uid !== uid) return;
+
+                const oppSymbol = mySymbol === 'X' ? 'O' : 'X';
+                if (!roomData.players[oppSymbol] || roomData.players[oppSymbol].online !== true) return;
+                if (roomData.turn !== mySymbol) return;
+
+                roomData.moves = roomData.moves || {};
+                const moveKey = `${r}_${c}`;
+                if (roomData.moves[moveKey]) return;
+
+                roomData.moves[moveKey] = mySymbol;
+                roomData.lastMove = { r, c };
+                roomData.moveSeq = (roomData.moveSeq || 0) + 1;
+                roomData.rematchRequest = null;
+
+                const tempBoard = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(''));
+                Object.entries(roomData.moves).forEach(([k, v]) => {
+                    const [kr, kc] = k.split('_').map(Number);
+                    if (Number.isInteger(kr) && Number.isInteger(kc) &&
+                        kr >= 0 && kr < BOARD_SIZE && kc >= 0 && kc < BOARD_SIZE &&
+                        (v === 'X' || v === 'O')) {
+                        tempBoard[kr][kc] = v;
+                    }
+                });
+
+                if (checkWinBoard(tempBoard, r, c, mySymbol)) {
+                    roomData.status = 'finished';
+                    roomData.winner = mySymbol;
+                } else if (isBoardFullBoard(tempBoard)) {
+                    roomData.status = 'finished';
+                    roomData.winner = 'DRAW';
+                } else {
+                    roomData.turn = oppSymbol;
+                }
+
+                return roomData;
+            });
+            return;
+        }
+
+        boardState[r][c] = currentTurn;
+        lastMove = { r, c };
+        syncBoardDOM();
+
+        if (checkWinBoard(boardState, r, c, currentTurn)) {
+            document.getElementById('turnIndicator').textContent = `${currentTurn} thắng`;
+            document.getElementById('turnIndicator').style.color = '#10b981';
+            gameOver = true;
+            return;
+        }
+        if (isBoardFullBoard(boardState)) {
+            document.getElementById('turnIndicator').textContent = "Hòa";
+            document.getElementById('turnIndicator').style.color = '#f59e0b';
+            gameOver = true;
+            return;
+        }
+
+        currentTurn = currentTurn === 'X' ? 'O' : 'X';
+        document.getElementById('turnIndicator').textContent = `Lượt: ${currentTurn}`;
+        document.getElementById('turnIndicator').style.color = currentTurn === 'X' ? '#38bdf8' : '#f43f5e';
+    }
+
+    async function handleResetClick() {
+        if (currentRoomId && roomRef && currentRoomSnapshot && (mySymbol === 'X' || mySymbol === 'O')) {
+            const oppSymbol = mySymbol === 'X' ? 'O' : 'X';
+            const oppOnline = Boolean(currentRoomSnapshot.players &&
+                                      currentRoomSnapshot.players[oppSymbol] &&
+                                      currentRoomSnapshot.players[oppSymbol].online === true);
+            const hasMoves = Boolean(currentRoomSnapshot.moves && Object.keys(currentRoomSnapshot.moves).length > 0);
+
+            if (currentRoomSnapshot.status === 'playing' && oppOnline && hasMoves) {
+                if (currentRoomSnapshot.rematchRequest === mySymbol) {
+                    showToast("Đã gửi yêu cầu ván mới, đang chờ đối thủ đồng ý!", "info");
+                    return;
+                }
+                await roomRef.transaction(roomData => {
+                    if (!roomData || roomData.status !== 'playing') return;
+                    if (!roomData.players || !roomData.players[mySymbol] || roomData.players[mySymbol].uid !== uid) return;
+                    roomData.rematchRequest = mySymbol;
+                    return roomData;
+                });
+                showToast("Đã gửi yêu cầu xin đấu lại cho đối thủ!", "info");
+                return;
+            }
+
+            if (currentRoomSnapshot.status === 'finished' && oppOnline) {
+                if (currentRoomSnapshot.rematchRequest === oppSymbol) {
+                    await executeRoomReset(true);
+                    return;
+                }
+                await roomRef.transaction(roomData => {
+                    if (!roomData || roomData.status !== 'finished') return;
+                    if (!roomData.players || !roomData.players[mySymbol] || roomData.players[mySymbol].uid !== uid) return;
+                    roomData.rematchRequest = mySymbol;
+                    return roomData;
+                });
+                showToast("Đã gửi lời mời ván mới, chờ đối thủ bấm Ván mới!", "info");
+                return;
+            }
+
+            await executeRoomReset(false);
+        } else {
+            boardState = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(''));
+            currentTurn = 'X';
+            gameOver = false;
+            lastMove = null;
+            document.getElementById('turnIndicator').textContent = 'Lượt: X';
+            document.getElementById('turnIndicator').style.color = '#38bdf8';
+            syncBoardDOM();
+        }
+    }
+
+    async function acceptRematch() {
+        await executeRoomReset(true);
+    }
+
+    async function declineRematch() {
+        if (!roomRef || !mySymbol) return;
+        const oppSymbol = mySymbol === 'X' ? 'O' : 'X';
+        await roomRef.transaction(roomData => {
+            if (!roomData || roomData.rematchRequest !== oppSymbol) return;
+            roomData.rematchRequest = null;
+            return roomData;
+        });
+    }
+
+    async function executeRoomReset(requireOpponentRequest) {
+        if (!roomRef || (mySymbol !== 'X' && mySymbol !== 'O')) return;
+        const oppSymbol = mySymbol === 'X' ? 'O' : 'X';
+
+        await roomRef.transaction((roomData) => {
+            if (!roomData || !roomData.players) return;
+            if (!roomData.players[mySymbol] || roomData.players[mySymbol].uid !== uid) return;
+            if (requireOpponentRequest && roomData.rematchRequest !== oppSymbol) return;
+
+            const nextStarter = roomData.starter === 'X' ? 'O' : 'X';
+            roomData.status = 'playing';
+            roomData.winner = '';
+            roomData.starter = nextStarter;
+            roomData.turn = nextStarter;
+            roomData.lastMove = null;
+            roomData.moves = null;
+            roomData.rematchRequest = null;
+            roomData.moveSeq = (roomData.moveSeq || 0) + 1;
+            return roomData;
+        });
+    }
+
+    async function leaveOnlineRoom() {
+        await detachCurrentRoom();
+        exitToLocalMode();
+        showToast("Đã rời phòng.", "info");
+    }
+
+    function exitToLocalMode() {
+        currentRoomId = null;
+        mySymbol = null;
+        roomRef = null;
+        roomListener = null;
+        currentRoomSnapshot = null;
+
+        document.getElementById('lobbyControls').style.display = 'flex';
+        document.getElementById('activeRoomControls').style.display = 'none';
+        document.getElementById('opponentScoreRow').style.display = 'none';
+        document.getElementById('opponentAvatarImg').style.display = 'none';
+        document.getElementById('rematchBanner').style.display = 'none';
+        document.getElementById('roomStatusText').textContent = 'Chế độ: Chơi thử trên máy';
+        document.getElementById('roomStatusText').style.color = '#cbd5e1';
+
+        boardState = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(''));
+        currentTurn = 'X';
+        gameOver = false;
+        lastMove = null;
+        document.getElementById('turnIndicator').textContent = 'Lượt: X';
+        document.getElementById('turnIndicator').style.color = '#38bdf8';
+        syncBoardDOM();
+    }
+
+    function isBoardFullBoard(b) {
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (b[r][c] === '') return false;
+            }
+        }
+        return true;
+    }
+
+    function checkWinBoard(b, r, c, player) {
+        const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+        for (let [dr, dc] of dirs) {
+            let count = 1;
+            for (let i = 1; i < 5; i++) {
+                let nr = r + dr*i, nc = c + dc*i;
+                if (nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && b[nr][nc] === player) count++; else break;
+            }
+            for (let i = 1; i < 5; i++) {
+                let nr = r - dr*i, nc = c - dc*i;
+                if (nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE && b[nr][nc] === player) count++; else break;
+            }
+            if (count >= 5) return true;
+        }
+        return false;
+    }
+
+    const defaultQuestions = [
+        { id: "def_1", question: "Cờ Caro tiêu chuẩn cần bao nhiêu quân thẳng hàng để thắng?", options: ["3 quân", "4 quân", "5 quân", "6 quân"], correct: 2 },
+        { id: "def_2", question: "Nước đi đầu tiên trong cờ Caro thường được đánh ở đâu để tối ưu?", options: ["Góc bàn cờ", "Giữa bàn cờ", "Sát biên trái", "Sát biên dưới"], correct: 1 },
+        { id: "def_3", question: "Số nguyên tố chẵn duy nhất là số nào?", options: ["0", "2", "4", "6"], correct: 1 },
+        { id: "def_4", question: "Hành tinh nào gần Mặt Trời nhất?", options: ["Sao Kim", "Sao Hỏa", "Sao Thủy", "Trái Đất"], correct: 2 },
+        { id: "def_5", question: "Đơn vị đo cường độ dòng điện là gì?", options: ["Vôn (V)", "Ampe (A)", "Ôm (Ω)", "Oát (W)"], correct: 1 }
+    ];
+
+    let questionNumber = 1;
+    let score = 0;
+    let currentQuestionObj = null;
+    let currentQuestionIsAdmin = false;
+    let selectedOptionIndex = null;
+    let timeLeft = 15;
+    let timerInterval = null;
+    let isTransitioning = false;
+
+    let firebaseAdminQueue = [];
+    let consumedAdminIds = new Set();
+
+    function isValidQuestionPayload(q) {
+        if (!q || typeof q !== 'object') return false;
+        if (typeof q.id !== 'string' || !/^[a-zA-Z0-9_-]{3,64}$/.test(q.id)) return false;
+        if (typeof q.question !== 'string' || q.question.trim().length === 0) return false;
+        if (!Array.isArray(q.options) || q.options.length < 2 || q.options.length > 6) return false;
+        if (!q.options.every(opt => typeof opt === 'string' && opt.trim().length > 0)) return false;
+        if (!Number.isInteger(q.correct) || q.correct < 0 || q.correct >= q.options.length) return false;
+        return true;
+    }
+
+    function commitConsumedQuestion(qId) {
+        if (!qId || !/^[a-zA-Z0-9_-]{3,64}$/.test(qId)) return;
+        consumedAdminIds.add(qId);
+
+        const recentIds = Array.from(consumedAdminIds).slice(-50);
+        consumedAdminIds = new Set(recentIds);
+        const mapObj = {};
+        recentIds.forEach(id => { mapObj[id] = true; });
+
+        if (myUserRef) {
+            myUserRef.update({
+                score: score,
+                qNum: questionNumber,
+                consumedQuestions: mapObj
+            }).catch(() => {});
+        }
+    }
+
+    async function startQuizSystem(serverConsumedMap) {
+        Object.keys(serverConsumedMap || {}).forEach(id => {
+            if (/^[a-zA-Z0-9_-]{3,64}$/.test(id)) consumedAdminIds.add(id);
+        });
+
+        db.ref('live_quiz/question_queue').orderByChild('updatedAt').limitToLast(30).on('value', (snap) => {
+            const list = [];
+            snap.forEach(child => {
+                const q = child.val();
+                if (isValidQuestionPayload(q) && !consumedAdminIds.has(q.id)) {
+                    list.push(q);
+                }
+            });
+            list.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+            firebaseAdminQueue = list;
+
+            if (firebaseAdminQueue.length > 0) {
+                document.getElementById('syncStatus').textContent = `Hàng đợi Admin: ${firebaseAdminQueue.length} câu`;
+                document.getElementById('syncStatus').style.color = "#f59e0b";
+            } else {
+                document.getElementById('syncStatus').textContent = "Live Sync";
+                document.getElementById('syncStatus').style.color = "#10b981";
+            }
+        });
+
+        loadNextQuestion();
+    }
+
+    function syncPlayerQuizProgress() {
+        if (currentRoomId && roomRef && mySymbol) {
+            roomRef.child(`players/${mySymbol}`).update({
+                score: score,
+                qNum: questionNumber
+            }).catch(() => {});
+        }
+    }
+
+    function loadNextQuestion() {
+        isTransitioning = false;
+        selectedOptionIndex = null;
+        document.getElementById('finishBtn').style.display = 'none';
+        document.getElementById('qNumberDisplay').textContent = `Câu ${questionNumber}`;
+        syncPlayerQuizProgress();
+
+        const tagArea = document.getElementById('adminTagArea');
+        tagArea.innerHTML = '';
+
+        const nextAdminQ = firebaseAdminQueue.find(q => !consumedAdminIds.has(q.id));
+        if (nextAdminQ) {
+            currentQuestionObj = nextAdminQ;
+            currentQuestionIsAdmin = true;
+            const badge = document.createElement('span');
+            badge.className = 'admin-badge';
+            badge.textContent = 'CÂU HỎI TỪ ADMIN';
+            tagArea.appendChild(badge);
+        } else {
+            currentQuestionObj = defaultQuestions[(questionNumber - 1) % defaultQuestions.length];
+            currentQuestionIsAdmin = false;
+        }
+
+        document.getElementById('qContent').textContent = currentQuestionObj.question;
+        const optionsContainer = document.getElementById('optionsContainer');
+        optionsContainer.innerHTML = '';
+
+        const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+        currentQuestionObj.options.forEach((optText, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'opt-btn';
+
+            const prefix = document.createElement('strong');
+            prefix.textContent = `${labels[idx]}. `;
+            btn.appendChild(prefix);
+            btn.appendChild(document.createTextNode(String(optText)));
+
+            btn.onclick = () => selectOption(idx, btn);
+            optionsContainer.appendChild(btn);
+        });
+
+        startTimer();
+    }
+
+    function selectOption(idx, btnEl) {
+        if (isTransitioning) return;
+        selectedOptionIndex = idx;
+
+        const allBtns = document.querySelectorAll('.opt-btn');
+        allBtns.forEach(b => b.classList.remove('selected'));
+        btnEl.classList.add('selected');
+
+        document.getElementById('finishBtn').style.display = 'block';
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+        timeLeft = 15;
+        updateTimerUI();
+
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerUI();
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                submitAndNext();
+            }
+        }, 1000);
+    }
+
+    function updateTimerUI() {
+        const timerEl = document.getElementById('timerDisplay');
+        timerEl.textContent = timeLeft + 's';
+        if (timeLeft <= 5) {
+            timerEl.classList.remove('safe');
+        } else {
+            timerEl.classList.add('safe');
+        }
+    }
+
+    function submitAndNext() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        clearInterval(timerInterval);
+        document.getElementById('finishBtn').style.display = 'none';
+
+        const allBtns = document.querySelectorAll('.opt-btn');
+        if (selectedOptionIndex !== null) {
+            if (selectedOptionIndex === currentQuestionObj.correct) {
+                score += 10;
+                allBtns[selectedOptionIndex].classList.add('correct');
+            } else {
+                allBtns[selectedOptionIndex].classList.add('wrong');
+                if (allBtns[currentQuestionObj.correct]) {
+                    allBtns[currentQuestionObj.correct].classList.add('correct');
+                }
+            }
+        }
+        document.getElementById('scoreDisplay').textContent = score;
+
+        if (currentQuestionIsAdmin && currentQuestionObj && currentQuestionObj.id) {
+            commitConsumedQuestion(currentQuestionObj.id);
+        } else if (myUserRef) {
+            myUserRef.update({ score: score, qNum: questionNumber + 1 }).catch(() => {});
+        }
+
+        syncPlayerQuizProgress();
+
+        setTimeout(() => {
+            questionNumber++;
+            loadNextQuestion();
+        }, 600);
+    }
+
+    initBoardDOM();
+    myCountry = localStorage.getItem('caro_saved_country') || 'VN';
+    myName = localStorage.getItem('caro_saved_name') || '';
+    myAvatar = localStorage.getItem('caro_saved_avatar') || makeDefaultAvatarSvg(myName);
+    populateCountrySelects(myCountry);
+    backToLoginScreen();
+</script>
+</body>
+</html>
